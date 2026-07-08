@@ -1,3 +1,4 @@
+#include "tlscope/aggregate.hpp"
 #include "tlscope/proc_reader.hpp"
 #include "tlscope/sample_engine.hpp"
 #include "tlscope/target_resolver.hpp"
@@ -72,6 +73,9 @@ QtOptions parse_options(const QStringList& args)
             options.target.thread_regex = require_value(args, i, arg).toStdString();
         } else if (arg == "--sample-ms") {
             options.sampler.sample_ms = parse_double(require_value(args, i, arg), arg);
+        } else if (arg == "--refresh-target-ms") {
+            options.sampler.refresh_target_ms = static_cast<std::uint64_t>(
+                parse_int(require_value(args, i, arg), arg));
         } else if (arg == "--window-ms") {
             options.window_ms = static_cast<std::uint64_t>(
                 parse_int(require_value(args, i, arg), arg));
@@ -109,6 +113,8 @@ public:
 
         auto resolved = resolver_.resolve(options_.target);
         targets_ = std::move(resolved.targets);
+        next_refresh_ns_ = tlscope::ProcReader::monotonic_raw_ns() +
+                           options_.sampler.refresh_target_ms * 1000000ULL;
         if (targets_.empty()) {
             status_ = "No targets resolved";
         }
@@ -150,7 +156,19 @@ protected:
 private:
     void sample_once()
     {
+        const auto now = tlscope::ProcReader::monotonic_raw_ns();
+        if (now >= next_refresh_ns_) {
+            auto refreshed = resolver_.resolve(options_.target);
+            targets_ = std::move(refreshed.targets);
+            next_refresh_ns_ = now + options_.sampler.refresh_target_ms * 1000000ULL;
+        }
+
         if (targets_.empty()) {
+            latest_total_ = 0.0;
+            process_count_ = 0;
+            target_count_ = 0;
+            valid_count_ = 0;
+            status_ = "No targets resolved";
             return;
         }
 
@@ -160,29 +178,28 @@ private:
                                           online_cpus_,
                                           ns_from_ms(options_.sampler.sample_ms));
 
-        double total = 0.0;
-        for (const auto& point : points) {
-            if (point.valid) {
-                total += point.load_percent;
-            }
-        }
+        const auto aggregate = tlscope::aggregate_points(points);
 
-        const auto now = tlscope::ProcReader::monotonic_raw_ns();
-        history_.push_back({ now, total });
+        history_.push_back({ now, aggregate.load_percent });
         const auto window_ns = options_.window_ms * 1000000ULL;
         while (!history_.empty() && now - history_.front().timestamp_ns > window_ns) {
             history_.pop_front();
         }
 
-        latest_total_ = total;
-        status_ = "targets=" + std::to_string(targets_.size()) +
-                  " total=" + fixed3(total) + "% sample=" +
+        latest_total_ = aggregate.load_percent;
+        process_count_ = aggregate.process_count;
+        target_count_ = aggregate.target_count;
+        valid_count_ = aggregate.valid_count;
+        status_ = "aggregate=" + fixed3(aggregate.load_percent) +
+                  "% processes=" + std::to_string(process_count_) +
+                  " tasks=" + std::to_string(valid_count_) + "/" +
+                  std::to_string(target_count_) + " sample=" +
                   fixed3(options_.sampler.sample_ms) + "ms";
     }
 
     std::string header_text() const
     {
-        return "window=" + std::to_string(options_.window_ms) + "ms online_cpu=" +
+        return "aggregate window=" + std::to_string(options_.window_ms) + "ms online_cpu=" +
                std::to_string(online_cpus_) + " one_core=" +
                fixed3(online_cpus_ > 0 ? 100.0 / online_cpus_ : 0.0) + "%";
     }
@@ -253,8 +270,12 @@ private:
     QTimer sample_timer_;
     QTimer render_timer_;
     std::deque<HistoryPoint> history_;
+    std::uint64_t next_refresh_ns_ = 0;
     int online_cpus_ = 1;
     double latest_total_ = 0.0;
+    std::size_t process_count_ = 0;
+    std::size_t target_count_ = 0;
+    std::size_t valid_count_ = 0;
     std::string status_ = "starting";
 };
 

@@ -12,6 +12,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 find_package(Threads REQUIRED)
 
 add_library(tlscope_core
+  src/aggregate.cpp
   src/csv_writer.cpp
   src/proc_reader.cpp
   src/sample_engine.cpp

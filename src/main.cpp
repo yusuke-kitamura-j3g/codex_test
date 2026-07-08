@@ -1,3 +1,4 @@
+#include "tlscope/aggregate.hpp"
 #include "tlscope/csv_writer.hpp"
 #include "tlscope/proc_reader.hpp"
 #include "tlscope/sample_engine.hpp"
@@ -28,6 +29,9 @@ struct CliOptions {
     std::uint64_t window_ms = 500;
     std::uint64_t print_ms = 250;
     std::string csv_path;
+    bool aggregate_only = false;
+    bool show_process_summary = true;
+    bool csv_aggregate = false;
 };
 
 void on_signal(int)
@@ -53,6 +57,9 @@ void usage(std::ostream& out)
         << "  --window-ms <300|500|1000>  Rolling graph window, default 500\n"
         << "  --print-ms <ms>             Terminal refresh interval, default 250\n"
         << "  --csv <path>                Write CSV samples\n"
+        << "  --csv-aggregate             Also write aggregate rows to CSV\n"
+        << "  --aggregate-only            Print only the combined load line\n"
+        << "  --no-process-summary        Hide per-process aggregate rows\n"
         << "  --help                      Show this help\n";
 }
 
@@ -119,6 +126,12 @@ CliOptions parse_args(int argc, char** argv)
                 static_cast<std::uint64_t>(parse_int(require_value(i, argc, argv, arg), arg));
         } else if (arg == "--csv") {
             options.csv_path = require_value(i, argc, argv, arg);
+        } else if (arg == "--csv-aggregate") {
+            options.csv_aggregate = true;
+        } else if (arg == "--aggregate-only") {
+            options.aggregate_only = true;
+        } else if (arg == "--no-process-summary") {
+            options.show_process_summary = false;
         } else {
             throw std::runtime_error("unknown option: " + arg);
         }
@@ -172,20 +185,33 @@ void print_targets(const std::vector<tlscope::TaskIdentity>& targets)
     }
 }
 
-void print_live(const std::vector<tlscope::LoadPoint>& points,
+void print_live(const tlscope::AggregatePoint& aggregate,
+                const std::vector<tlscope::ProcessAggregate>& processes,
+                const std::vector<tlscope::LoadPoint>& points,
                 const std::deque<double>& total_history,
-                int online_cpus)
+                int online_cpus,
+                bool aggregate_only,
+                bool show_process_summary)
 {
-    double total = 0.0;
-    for (const auto& point : points) {
-        if (point.valid) {
-            total += point.load_percent;
-        }
+    std::cout << "aggregate=" << std::fixed << std::setprecision(3) << aggregate.load_percent
+              << "%  processes=" << aggregate.process_count
+              << " tasks=" << aggregate.valid_count << "/" << aggregate.target_count
+              << "  one_core=" << (100.0 / std::max(1, online_cpus))
+              << "%  [" << sparkline(total_history, 48) << "]\n";
+
+    if (aggregate_only) {
+        return;
     }
 
-    std::cout << "total=" << std::fixed << std::setprecision(3) << total
-              << "%  one_core=" << (100.0 / std::max(1, online_cpus))
-              << "%  [" << sparkline(total_history, 48) << "]\n";
+    if (show_process_summary) {
+        for (const auto& process : processes) {
+            std::cout << "  process pid=" << process.pid
+                      << " load=" << std::fixed << std::setprecision(3)
+                      << process.load_percent
+                      << "% tasks=" << process.valid_count << "/" << process.target_count
+                      << " comm=" << process.comm << '\n';
+        }
+    }
 
     for (const auto& point : points) {
         std::cout << "  pid=" << point.identity.pid
@@ -272,23 +298,33 @@ int main(int argc, char** argv)
                                                options.sampler,
                                                online_cpus,
                                                sample_ns);
+            const auto aggregate = tlscope::aggregate_points(latest_points);
+            const auto process_totals = tlscope::aggregate_by_process(latest_points);
 
-            double total = 0.0;
             for (const auto& point : latest_points) {
                 if (point.valid) {
-                    total += point.load_percent;
                     if (csv.is_open()) {
                         csv.write(point);
                     }
                 }
             }
-            total_history.push_back(total);
+            if (csv.is_open() && options.csv_aggregate && aggregate.valid_count > 0) {
+                csv.write_aggregate(aggregate);
+            }
+
+            total_history.push_back(aggregate.load_percent);
             while (total_history.size() * sample_ns > window_ns && !total_history.empty()) {
                 total_history.pop_front();
             }
 
             if (now_ns >= next_print_ns) {
-                print_live(latest_points, total_history, online_cpus);
+                print_live(aggregate,
+                           process_totals,
+                           latest_points,
+                           total_history,
+                           online_cpus,
+                           options.aggregate_only,
+                           options.show_process_summary);
                 next_print_ns = now_ns + print_ns;
             }
 

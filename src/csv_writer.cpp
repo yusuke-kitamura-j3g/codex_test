@@ -69,6 +69,32 @@ void CsvWriter::write(const LoadPoint& point)
          << escape_csv(point.status) << '\n';
 }
 
+void CsvWriter::write_aggregate(const AggregatePoint& point)
+{
+    if (!out_) {
+        return;
+    }
+
+    const std::string summary =
+        "processes=" + std::to_string(point.process_count) +
+        " tasks=" + std::to_string(point.target_count) +
+        " valid_tasks=" + std::to_string(point.valid_count);
+
+    out_ << point.timestamp_ns << ','
+         << -1 << ','
+         << -1 << ','
+         << "AGGREGATE" << ','
+         << escape_csv(summary) << ','
+         << std::fixed << std::setprecision(6) << point.load_percent << ','
+         << std::fixed << std::setprecision(6) << point.wait_ratio_percent << ','
+         << point.exec_delta_ns << ','
+         << point.wait_delta_ns << ','
+         << point.wall_delta_ns << ','
+         << 0 << ','
+         << "aggregate" << ','
+         << "aggregate" << '\n';
+}
+
 void CsvWriter::flush()
 {
     if (out_) {
