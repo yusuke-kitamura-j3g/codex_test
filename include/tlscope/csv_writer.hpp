@@ -1,5 +1,6 @@
 #pragma once
 
+#include "tlscope/aggregate.hpp"
 #include "tlscope/types.hpp"
 
 #include <fstream>
@@ -15,6 +16,7 @@ public:
     bool open(const std::string& path);
     bool is_open() const;
     void write(const LoadPoint& point);
+    void write_aggregate(const AggregatePoint& point);
     void flush();
 
 private:

@@ -7,6 +7,7 @@ The MVP is intentionally UI-independent:
 - reads `/proc/<pid>/task/<tid>/schedstat` when available
 - falls back to `/proc/<pid>/task/<tid>/stat` when requested
 - normalizes target CPU time against all online CPUs, so all cores combined are `100%`
+- aggregates multiple processes into one combined load line
 - writes CSV and prints a compact live terminal graph
 - builds an optional Qt Widgets viewer when Qt5/Qt6 Widgets is available
 - includes `tlscope-periodic-load` as a deterministic load fixture
@@ -35,6 +36,18 @@ Monitor all threads in a process:
 ./build/thor-load-scope --pid 1234 --sample-ms 5 --window-ms 500 --csv camera_load.csv
 ```
 
+Monitor multiple processes as one combined load:
+
+```bash
+./build/thor-load-scope --pid 1234 --pid 5678 --sample-ms 5 --window-ms 500 --aggregate-only
+```
+
+Monitor every process matched by name and show process subtotals:
+
+```bash
+./build/thor-load-scope --name-regex 'camera|nvsipl' --sample-ms 5 --window-ms 500
+```
+
 Monitor one TID:
 
 ```bash
@@ -52,8 +65,10 @@ Then monitor the printed PID/TID with `thor-load-scope`.
 Launch the optional Qt viewer, when Qt Widgets is available:
 
 ```bash
-./build/thor-load-scope-qt --pid 1234 --sample-ms 5 --window-ms 500
+./build/thor-load-scope-qt --pid 1234 --pid 5678 --sample-ms 5 --window-ms 500
 ```
+
+Add `--csv-aggregate` to write combined rows in the CSV alongside per-thread samples.
 
 ## Current Scope
 
@@ -63,6 +78,8 @@ Implemented:
 - PID/TID resolver
 - schedstat/stat fallback sampling
 - online CPU normalization
+- aggregate total across multiple processes
+- per-process terminal subtotals
 - CLI parser
 - CSV writer
 - compact terminal graph
