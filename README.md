@@ -14,6 +14,10 @@ The MVP is intentionally UI-independent:
 
 The Qt viewer uses the same `tlscope_core` library as the CLI.
 
+## TUI Preview
+
+![thor-load-scope TUI preview](docs/images/tui-preview.svg)
+
 ## Build on DRIVE OS / Ubuntu
 
 ```bash
@@ -21,6 +25,22 @@ cd thor-load-scope
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
 ```
+
+## Windows Smoke Build
+
+The monitor is intended to run on DRIVE OS / Ubuntu, but the CLI target can be
+compiled on Windows for local syntax and linkage checks. Use the repository
+helper after installing the portable CMake and w64devkit toolchain under
+`../tools/build`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\build-windows-smoke.ps1
+.\build-win\thor-load-scope.exe --help
+```
+
+The script maps the workspace to a temporary ASCII drive letter before running
+CMake, which avoids MinGW Make path issues when the checkout path contains
+non-ASCII characters.
 
 ## Quick Start
 
@@ -47,6 +67,9 @@ Monitor every process matched by name and show process subtotals:
 ```bash
 ./build/thor-load-scope --name-regex 'camera|nvsipl' --sample-ms 5 --window-ms 500
 ```
+
+Capture the TUI on the target with a terminal screenshot tool and replace
+`docs/images/tui-preview.svg` when an actual DRIVE OS runtime image is available.
 
 Monitor one TID:
 

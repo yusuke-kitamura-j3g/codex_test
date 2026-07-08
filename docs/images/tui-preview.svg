@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="520" viewBox="0 0 980 520" role="img" aria-labelledby="title desc">
+  <title id="title">thor-load-scope terminal preview</title>
+  <desc id="desc">Representative terminal output showing aggregate multi-process CPU load and per-process subtotals.</desc>
+  <rect width="980" height="520" rx="10" fill="#11151b"/>
+  <rect x="0" y="0" width="980" height="34" rx="10" fill="#202733"/>
+  <circle cx="22" cy="17" r="6" fill="#f36b5f"/>
+  <circle cx="43" cy="17" r="6" fill="#f2c14e"/>
+  <circle cx="64" cy="17" r="6" fill="#52c878"/>
+  <text x="88" y="22" fill="#d7dde8" font-family="Consolas, Menlo, monospace" font-size="14">thor-load-scope - TUI runtime view</text>
+
+  <g font-family="Consolas, Menlo, monospace" font-size="18">
+    <text x="28" y="72" fill="#7dd3fc">$ ./build/thor-load-scope --name-regex 'camera|nvsipl' --sample-ms 5 --window-ms 500</text>
+    <text x="28" y="110" fill="#9aa7b8">resolved_targets=8 sample_ms=5 window_ms=500</text>
+
+    <text x="28" y="158" fill="#f8fafc">aggregate=23.284%  processes=2 tasks=8/8  one_core=8.333%  [</text>
+    <text x="705" y="158" fill="#52c878">..::--==++***###%%@@@%%##***++==--::..</text>
+    <text x="940" y="158" fill="#f8fafc">]</text>
+
+    <text x="52" y="205" fill="#fbbf24">process pid=1234 load=14.951% tasks=5/5 comm=camera_driver</text>
+    <text x="52" y="236" fill="#fbbf24">process pid=5678 load=8.333%  tasks=3/3 comm=nvsipl_camera</text>
+
+    <text x="52" y="292" fill="#cbd5e1">pid=1234 tid=1240 comm=Capture0 load=5.012% wait=0.000% source=schedstat status=ok</text>
+    <text x="52" y="323" fill="#cbd5e1">pid=1234 tid=1241 comm=Capture1 load=4.982% wait=0.000% source=schedstat status=ok</text>
+    <text x="52" y="354" fill="#cbd5e1">pid=1234 tid=1242 comm=ISP      load=4.957% wait=0.012% source=schedstat status=ok</text>
+    <text x="52" y="385" fill="#cbd5e1">pid=5678 tid=5682 comm=NvSIPL0  load=4.169% wait=0.004% source=schedstat status=ok</text>
+    <text x="52" y="416" fill="#cbd5e1">pid=5678 tid=5683 comm=NvSIPL1  load=4.164% wait=0.003% source=schedstat status=ok</text>
+
+    <text x="28" y="476" fill="#7dd3fc">sampling at 5 ms, rolling 500 ms window, all online CPU cores normalized to 100%</text>
+  </g>
+</svg>

@@ -52,23 +52,29 @@ target_link_libraries(thor-load-scope
     tlscope_core
 )
 
-add_executable(tlscope-periodic-load
-  tests/fixtures/periodic_load.cpp
-)
+set(TLSCOPE_INSTALL_TARGETS thor-load-scope)
 
-target_compile_options(tlscope-periodic-load
-  PRIVATE
-    -Wall
-    -Wextra
-    -Wpedantic
-)
+if(NOT WIN32)
+  add_executable(tlscope-periodic-load
+    tests/fixtures/periodic_load.cpp
+  )
 
-target_link_libraries(tlscope-periodic-load
-  PRIVATE
-    Threads::Threads
-)
+  target_compile_options(tlscope-periodic-load
+    PRIVATE
+      -Wall
+      -Wextra
+      -Wpedantic
+  )
 
-install(TARGETS thor-load-scope tlscope-periodic-load
+  target_link_libraries(tlscope-periodic-load
+    PRIVATE
+      Threads::Threads
+  )
+
+  list(APPEND TLSCOPE_INSTALL_TARGETS tlscope-periodic-load)
+endif()
+
+install(TARGETS ${TLSCOPE_INSTALL_TARGETS}
   RUNTIME DESTINATION bin
 )
 

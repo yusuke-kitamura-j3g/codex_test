@@ -10,7 +10,18 @@
 #include <stdexcept>
 #include <sys/stat.h>
 #include <time.h>
+
+#if defined(_WIN32)
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#ifndef NOMINMAX
+#define NOMINMAX
+#endif
+#include <windows.h>
+#else
 #include <unistd.h>
+#endif
 
 namespace tlscope {
 
@@ -175,23 +186,48 @@ int ProcReader::online_cpu_count() const
         return parsed;
     }
 
+#if defined(_WIN32)
+    const DWORD count = GetActiveProcessorCount(ALL_PROCESSOR_GROUPS);
+    return count > 0 ? static_cast<int>(count) : 1;
+#else
     const long count = sysconf(_SC_NPROCESSORS_ONLN);
     return count > 0 ? static_cast<int>(count) : 1;
+#endif
 }
 
 long ProcReader::clock_ticks_per_second() const
 {
+#if defined(_WIN32)
+    return 100;
+#else
     return sysconf(_SC_CLK_TCK);
+#endif
 }
 
 std::uint64_t ProcReader::monotonic_raw_ns()
 {
+#if defined(_WIN32)
+    LARGE_INTEGER frequency {};
+    LARGE_INTEGER counter {};
+    QueryPerformanceFrequency(&frequency);
+    QueryPerformanceCounter(&counter);
+    return static_cast<std::uint64_t>(
+        (static_cast<long double>(counter.QuadPart) * 1000000000.0L) /
+        static_cast<long double>(frequency.QuadPart));
+#else
     timespec ts {};
-    if (clock_gettime(CLOCK_MONOTONIC_RAW, &ts) != 0) {
+    constexpr clockid_t raw_clock =
+#if defined(CLOCK_MONOTONIC_RAW)
+        CLOCK_MONOTONIC_RAW;
+#else
+        CLOCK_MONOTONIC;
+#endif
+    if (clock_gettime(raw_clock, &ts) != 0) {
         clock_gettime(CLOCK_MONOTONIC, &ts);
     }
     return static_cast<std::uint64_t>(ts.tv_sec) * 1000000000ULL +
            static_cast<std::uint64_t>(ts.tv_nsec);
+#endif
 }
 
 bool ProcReader::is_numeric_name(const char* name)
