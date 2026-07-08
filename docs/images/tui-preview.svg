@@ -1,30 +1,38 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="980" height="520" viewBox="0 0 980 520" role="img" aria-labelledby="title desc">
-  <title id="title">thor-load-scope terminal preview</title>
-  <desc id="desc">Representative terminal output showing aggregate multi-process CPU load and per-process subtotals.</desc>
-  <rect width="980" height="520" rx="10" fill="#11151b"/>
-  <rect x="0" y="0" width="980" height="34" rx="10" fill="#202733"/>
+<svg xmlns="http://www.w3.org/2000/svg" width="980" height="600" viewBox="0 0 980 600" role="img" aria-labelledby="title desc">
+  <title id="title">thor-load-scope fixed-axis TUI preview</title>
+  <desc id="desc">Terminal preview with 0 to 100 percent all-core vertical axis and 500 millisecond horizontal time window.</desc>
+  <rect width="980" height="600" rx="8" fill="#10141a"/>
+  <rect x="0" y="0" width="980" height="34" rx="8" fill="#202733"/>
   <circle cx="22" cy="17" r="6" fill="#f36b5f"/>
   <circle cx="43" cy="17" r="6" fill="#f2c14e"/>
   <circle cx="64" cy="17" r="6" fill="#52c878"/>
-  <text x="88" y="22" fill="#d7dde8" font-family="Consolas, Menlo, monospace" font-size="14">thor-load-scope - TUI runtime view</text>
+  <text x="88" y="22" fill="#d7dde8" font-family="Consolas, Menlo, monospace" font-size="14">thor-load-scope - fixed 0..100% TUI graph</text>
 
-  <g font-family="Consolas, Menlo, monospace" font-size="18">
-    <text x="28" y="72" fill="#7dd3fc">$ ./build/thor-load-scope --name-regex 'camera|nvsipl' --sample-ms 5 --window-ms 500</text>
-    <text x="28" y="110" fill="#9aa7b8">resolved_targets=8 sample_ms=5 window_ms=500</text>
+  <g font-family="Consolas, Menlo, monospace" font-size="17">
+    <text x="28" y="70" fill="#7dd3fc">$ ./build/thor-load-scope --name-regex 'camera|nvsipl' --sample-ms 5 --window-ms 500</text>
+    <text x="28" y="108" fill="#f8fafc">thor-load-scope  aggregate=23.284%  window=500ms  sample=5.000ms  processes=2  tasks=8/8  one_core=8.333%</text>
+    <text x="28" y="142" fill="#9aa7b8">y-axis: 0..100% of all online CPU cores, x-axis: last 500 ms</text>
 
-    <text x="28" y="158" fill="#f8fafc">aggregate=23.284%  processes=2 tasks=8/8  one_core=8.333%  [</text>
-    <text x="705" y="158" fill="#52c878">..::--==++***###%%@@@%%##***++==--::..</text>
-    <text x="940" y="158" fill="#f8fafc">]</text>
+    <text x="28" y="180" fill="#64748b">100% |</text>
+    <text x="28" y="210" fill="#64748b"> 90% |</text>
+    <text x="28" y="240" fill="#64748b"> 80% |</text>
+    <text x="28" y="270" fill="#64748b"> 70% |</text>
+    <text x="28" y="300" fill="#64748b"> 60% |</text>
+    <text x="28" y="330" fill="#64748b"> 50% |</text>
+    <text x="28" y="360" fill="#64748b"> 40% |</text>
+    <text x="28" y="390" fill="#64748b"> 30% |</text>
+    <text x="28" y="420" fill="#64748b"> 20% |</text>
+    <text x="28" y="450" fill="#64748b"> 10% |</text>
+    <text x="28" y="480" fill="#64748b">  0% +</text>
 
-    <text x="52" y="205" fill="#fbbf24">process pid=1234 load=14.951% tasks=5/5 comm=camera_driver</text>
-    <text x="52" y="236" fill="#fbbf24">process pid=5678 load=8.333%  tasks=3/3 comm=nvsipl_camera</text>
+    <polyline points="100,419 160,419 220,389 280,389 340,389 400,359 460,389 520,389 580,419 640,419 700,389 760,389 820,419 890,419" fill="none" stroke="#5ad59a" stroke-width="3"/>
+    <line x1="100" y1="450" x2="890" y2="450" stroke="#e5b84b" stroke-width="1.5" stroke-dasharray="8 6"/>
+    <line x1="100" y1="180" x2="100" y2="480" stroke="#475569" stroke-width="1"/>
+    <line x1="100" y1="480" x2="890" y2="480" stroke="#475569" stroke-width="1"/>
+    <text x="100" y="516" fill="#9aa7b8">-500ms</text>
+    <text x="840" y="516" fill="#9aa7b8">now</text>
+    <text x="705" y="446" fill="#e5b84b">one core</text>
 
-    <text x="52" y="292" fill="#cbd5e1">pid=1234 tid=1240 comm=Capture0 load=5.012% wait=0.000% source=schedstat status=ok</text>
-    <text x="52" y="323" fill="#cbd5e1">pid=1234 tid=1241 comm=Capture1 load=4.982% wait=0.000% source=schedstat status=ok</text>
-    <text x="52" y="354" fill="#cbd5e1">pid=1234 tid=1242 comm=ISP      load=4.957% wait=0.012% source=schedstat status=ok</text>
-    <text x="52" y="385" fill="#cbd5e1">pid=5678 tid=5682 comm=NvSIPL0  load=4.169% wait=0.004% source=schedstat status=ok</text>
-    <text x="52" y="416" fill="#cbd5e1">pid=5678 tid=5683 comm=NvSIPL1  load=4.164% wait=0.003% source=schedstat status=ok</text>
-
-    <text x="28" y="476" fill="#7dd3fc">sampling at 5 ms, rolling 500 ms window, all online CPU cores normalized to 100%</text>
+    <text x="28" y="552" fill="#fbbf24">process totals: pid=1234 load=14.951% camera_driver, pid=5678 load=8.333% nvsipl_camera</text>
   </g>
 </svg>

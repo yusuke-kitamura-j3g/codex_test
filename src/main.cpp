@@ -7,6 +7,7 @@
 #include <algorithm>
 #include <atomic>
 #include <chrono>
+#include <cmath>
 #include <csignal>
 #include <deque>
 #include <iomanip>
@@ -16,6 +17,7 @@
 #include <stdexcept>
 #include <string>
 #include <thread>
+#include <vector>
 
 namespace {
 
@@ -32,6 +34,8 @@ struct CliOptions {
     bool aggregate_only = false;
     bool show_process_summary = true;
     bool csv_aggregate = false;
+    bool clear_screen = true;
+    bool show_threads = false;
 };
 
 void on_signal(int)
@@ -58,8 +62,10 @@ void usage(std::ostream& out)
         << "  --print-ms <ms>             Terminal refresh interval, default 250\n"
         << "  --csv <path>                Write CSV samples\n"
         << "  --csv-aggregate             Also write aggregate rows to CSV\n"
-        << "  --aggregate-only            Print only the combined load line\n"
+        << "  --aggregate-only            Print only the combined load graph\n"
         << "  --no-process-summary        Hide per-process aggregate rows\n"
+        << "  --show-threads              Show per-thread sample rows below the graph\n"
+        << "  --no-clear                  Append frames instead of redrawing the terminal\n"
         << "  --help                      Show this help\n";
 }
 
@@ -132,6 +138,10 @@ CliOptions parse_args(int argc, char** argv)
             options.aggregate_only = true;
         } else if (arg == "--no-process-summary") {
             options.show_process_summary = false;
+        } else if (arg == "--show-threads") {
+            options.show_threads = true;
+        } else if (arg == "--no-clear") {
+            options.clear_screen = false;
         } else {
             throw std::runtime_error("unknown option: " + arg);
         }
@@ -143,6 +153,9 @@ CliOptions parse_args(int argc, char** argv)
     if (options.print_ms == 0) {
         throw std::runtime_error("--print-ms must be greater than zero");
     }
+    if (options.window_ms < 300 || options.window_ms > 1000) {
+        throw std::runtime_error("--window-ms must be between 300 and 1000");
+    }
 
     return options;
 }
@@ -152,25 +165,74 @@ std::uint64_t ns_from_ms(double ms)
     return static_cast<std::uint64_t>(ms * 1000000.0);
 }
 
-std::string sparkline(const std::deque<double>& values, std::size_t width)
+double clamp_percent(double value)
 {
-    static const char* levels = " .:-=+*#%@";
-    if (values.empty() || width == 0) {
-        return {};
-    }
+    return std::min(100.0, std::max(0.0, value));
+}
 
-    const double max_value = std::max(0.01, *std::max_element(values.begin(), values.end()));
-    std::string out;
-    out.reserve(width);
+std::size_t y_for_percent(double value, std::size_t height)
+{
+    if (height <= 1) {
+        return 0;
+    }
+    const double ratio = clamp_percent(value) / 100.0;
+    const auto row = static_cast<std::size_t>(
+        std::lround((1.0 - ratio) * static_cast<double>(height - 1)));
+    return std::min(row, height - 1);
+}
+
+std::vector<double> resample_history(const std::deque<double>& values, std::size_t width)
+{
+    std::vector<double> out(width, 0.0);
+    if (values.empty() || width == 0) {
+        return out;
+    }
 
     for (std::size_t x = 0; x < width; ++x) {
         const std::size_t index = x * values.size() / width;
-        const double value = values[std::min(index, values.size() - 1)];
-        const auto level = static_cast<std::size_t>(
-            std::min<double>(9.0, std::max<double>(0.0, (value / max_value) * 9.0)));
-        out.push_back(levels[level]);
+        out[x] = values[std::min(index, values.size() - 1)];
     }
     return out;
+}
+
+std::string render_load_chart(const std::deque<double>& values,
+                              std::size_t width,
+                              std::size_t height,
+                              double one_core_percent,
+                              std::uint64_t window_ms)
+{
+    std::vector<std::string> canvas(height, std::string(width, ' '));
+    const std::vector<double> sampled = resample_history(values, width);
+
+    if (height > 0 && width > 0 && one_core_percent > 0.0 && one_core_percent <= 100.0) {
+        const std::size_t one_core_y = y_for_percent(one_core_percent, height);
+        for (std::size_t x = 0; x < width; ++x) {
+            canvas[one_core_y][x] = '-';
+        }
+    }
+
+    for (std::size_t x = 0; x < sampled.size(); ++x) {
+        const std::size_t y = y_for_percent(sampled[x], height);
+        canvas[y][x] = '*';
+    }
+
+    std::ostringstream out;
+    out << "y-axis: 0..100% of all online CPU cores, x-axis: last "
+        << window_ms << " ms\n";
+    for (std::size_t row = 0; row < height; ++row) {
+        const int label = static_cast<int>(
+            100 - (row * 100 / std::max<std::size_t>(1, height - 1)));
+        out << std::setw(3) << label << "% ";
+        out << (row + 1 == height ? '+' : '|') << canvas[row] << '\n';
+    }
+    out << "      -" << window_ms << "ms";
+    if (width > 16) {
+        out << std::string(width - 16, ' ');
+    } else {
+        out << ' ';
+    }
+    out << "now\n";
+    return out.str();
 }
 
 void print_targets(const std::vector<tlscope::TaskIdentity>& targets)
@@ -190,21 +252,44 @@ void print_live(const tlscope::AggregatePoint& aggregate,
                 const std::vector<tlscope::LoadPoint>& points,
                 const std::deque<double>& total_history,
                 int online_cpus,
+                std::uint64_t window_ms,
+                double sample_ms,
                 bool aggregate_only,
-                bool show_process_summary)
+                bool show_process_summary,
+                bool show_threads,
+                bool clear_screen)
 {
-    std::cout << "aggregate=" << std::fixed << std::setprecision(3) << aggregate.load_percent
-              << "%  processes=" << aggregate.process_count
-              << " tasks=" << aggregate.valid_count << "/" << aggregate.target_count
-              << "  one_core=" << (100.0 / std::max(1, online_cpus))
-              << "%  [" << sparkline(total_history, 48) << "]\n";
+    constexpr std::size_t graph_width = 64;
+    constexpr std::size_t graph_height = 11;
+    constexpr std::size_t max_process_rows = 4;
+    const double one_core = 100.0 / std::max(1, online_cpus);
+
+    if (clear_screen) {
+        std::cout << "\x1b[2J\x1b[H";
+    }
+
+    std::cout << "thor-load-scope  aggregate=" << std::fixed << std::setprecision(3)
+              << aggregate.load_percent
+              << "%  window=" << window_ms << "ms"
+              << "  sample=" << sample_ms << "ms"
+              << "  processes=" << aggregate.process_count
+              << "  tasks=" << aggregate.valid_count << "/" << aggregate.target_count
+              << "  one_core=" << one_core << "%\n";
+    std::cout << render_load_chart(total_history, graph_width, graph_height, one_core, window_ms);
 
     if (aggregate_only) {
+        std::cout.flush();
         return;
     }
 
     if (show_process_summary) {
-        for (const auto& process : processes) {
+        std::cout << "process totals";
+        if (processes.size() > max_process_rows) {
+            std::cout << " (top " << max_process_rows << " of " << processes.size() << ")";
+        }
+        std::cout << ":\n";
+        for (std::size_t i = 0; i < std::min(max_process_rows, processes.size()); ++i) {
+            const auto& process = processes[i];
             std::cout << "  process pid=" << process.pid
                       << " load=" << std::fixed << std::setprecision(3)
                       << process.load_percent
@@ -213,6 +298,12 @@ void print_live(const tlscope::AggregatePoint& aggregate,
         }
     }
 
+    if (!show_threads) {
+        std::cout.flush();
+        return;
+    }
+
+    std::cout << "thread samples:\n";
     for (const auto& point : points) {
         std::cout << "  pid=" << point.identity.pid
                   << " tid=" << point.identity.tid
@@ -222,6 +313,7 @@ void print_live(const tlscope::AggregatePoint& aggregate,
                   << "% source=" << tlscope::source_name(point.source)
                   << " status=" << point.status << '\n';
     }
+    std::cout.flush();
 }
 
 } // namespace
@@ -323,8 +415,12 @@ int main(int argc, char** argv)
                            latest_points,
                            total_history,
                            online_cpus,
+                           options.window_ms,
+                           options.sampler.sample_ms,
                            options.aggregate_only,
-                           options.show_process_summary);
+                           options.show_process_summary,
+                           options.show_threads,
+                           options.clear_screen);
                 next_print_ns = now_ns + print_ns;
             }
 

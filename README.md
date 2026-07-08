@@ -14,6 +14,19 @@ The MVP is intentionally UI-independent:
 
 The Qt viewer uses the same `tlscope_core` library as the CLI.
 
+## Display Design
+
+The live view is designed for a small monitor region, roughly one quarter of
+the display. It uses a fixed graph contract so load changes can be compared
+without auto-scale surprises:
+
+- vertical axis: `0..100%`, where `100%` means all online CPU cores combined
+- horizontal axis: rolling `300..1000 ms` window, default `500 ms`
+- default TUI frame: aggregate graph plus top per-process totals
+- optional details: add `--show-threads` when per-thread rows are needed
+- Qt viewer: same aggregate history, fixed `0..100%` scale, half-width by
+  half-height placement on the primary screen
+
 ## TUI Preview
 
 ![thor-load-scope TUI preview](docs/images/tui-preview.svg)
@@ -42,6 +55,30 @@ The script maps the workspace to a temporary ASCII drive letter before running
 CMake, which avoids MinGW Make path issues when the checkout path contains
 non-ASCII characters.
 
+## Windows Qt Build
+
+The optional Qt viewer can also be built on Windows. Install the minimal Qt
+Widgets SDK with `aqtinstall`; the default Qt destination is an ASCII path under
+the user profile because Qt's bundled MinGW tools are sensitive to non-ASCII
+OneDrive checkout paths.
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\install-windows-qt.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\build-windows-qt.ps1
+```
+
+The Qt build script uses the existing portable `../tools/build/w64devkit`
+compiler and links against Qt `6.10.3` from `$env:USERPROFILE\codex-tools\qt`.
+Override the SDK location with `-QtRoot <path>` if needed.
+
+To run the viewer directly from the build directory, keep the Qt runtime on
+`PATH`:
+
+```powershell
+$env:Path = "$env:USERPROFILE\codex-tools\qt\6.10.3\mingw_64\bin;$env:Path"
+.\build-win-qt-w64\thor-load-scope-qt.exe --pid 1234 --sample-ms 5 --window-ms 500
+```
+
 ## Quick Start
 
 List candidate threads:
@@ -67,6 +104,9 @@ Monitor every process matched by name and show process subtotals:
 ```bash
 ./build/thor-load-scope --name-regex 'camera|nvsipl' --sample-ms 5 --window-ms 500
 ```
+
+Append `--no-clear` when logging frames instead of redrawing the terminal.
+Append `--show-threads` when thread-level rows are needed below the graph.
 
 Capture the TUI on the target with a terminal screenshot tool and replace
 `docs/images/tui-preview.svg` when an actual DRIVE OS runtime image is available.

@@ -87,6 +87,9 @@ QtOptions parse_options(const QStringList& args)
     if (options.sampler.sample_ms <= 0.0) {
         throw std::runtime_error("--sample-ms must be greater than zero");
     }
+    if (options.window_ms < 300 || options.window_ms > 1000) {
+        throw std::runtime_error("--window-ms must be between 300 and 1000");
+    }
     return options;
 }
 
@@ -108,7 +111,7 @@ public:
           resolver_(reader_),
           engine_(reader_)
     {
-        setWindowTitle("thor-load-scope");
+        setWindowTitle("thor-load-scope - 0..100% all-core load");
         setMinimumSize(420, 260);
 
         auto resolved = resolver_.resolve(options_.target);
@@ -143,8 +146,7 @@ protected:
         painter.drawRect(plot);
 
         const double one_core = online_cpus_ > 0 ? 100.0 / online_cpus_ : 100.0;
-        const double max_history = max_load();
-        const double max_y = std::max({ one_core * 2.0, max_history * 1.2, 1.0 });
+        const double max_y = 100.0;
 
         draw_grid(painter, plot, max_y, one_core);
         draw_total_line(painter, plot, max_y);
@@ -199,18 +201,9 @@ private:
 
     std::string header_text() const
     {
-        return "aggregate window=" + std::to_string(options_.window_ms) + "ms online_cpu=" +
+        return "aggregate x=" + std::to_string(options_.window_ms) + "ms y=0..100% all-core online_cpu=" +
                std::to_string(online_cpus_) + " one_core=" +
                fixed3(online_cpus_ > 0 ? 100.0 / online_cpus_ : 0.0) + "%";
-    }
-
-    double max_load() const
-    {
-        double value = latest_total_;
-        for (const auto& point : history_) {
-            value = std::max(value, point.total_load);
-        }
-        return value;
     }
 
     static std::string fixed3(double value)
