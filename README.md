@@ -31,6 +31,18 @@ without auto-scale surprises:
 
 ![thor-load-scope TUI preview](docs/images/tui-preview.png)
 
+## Tegrastats TUI Preview
+
+The Thor-based `tegrastats` TUI proposal is stored separately from the current
+CPU load monitor prototype:
+
+- PNG screenshot: `docs/tegrastats-tui-preview/tui_actual_preview.png`
+- UTF-8 text frame: `docs/tegrastats-tui-preview/tui_actual_preview.txt`
+- ANSI color frame: `docs/tegrastats-tui-preview/tui_actual_preview.ansi`
+- preview renderer: `tools/render_tegrastats_tui_preview.py`
+
+![Thor tegrastats TUI preview](docs/tegrastats-tui-preview/tui_actual_preview.png)
+
 ## Build on DRIVE OS / Ubuntu
 
 ```bash
