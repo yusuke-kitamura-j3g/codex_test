@@ -29,7 +29,7 @@ without auto-scale surprises:
 
 ## TUI Preview
 
-![thor-load-scope TUI preview](docs/images/tui-preview.svg)
+![thor-load-scope TUI preview](docs/images/tui-preview.png)
 
 ## Build on DRIVE OS / Ubuntu
 
